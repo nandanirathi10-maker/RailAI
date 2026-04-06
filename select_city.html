@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select City | RailAI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: #0a0c12;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: radial-gradient(circle at 10% 20%, rgba(0,224,255,0.05) 0%, #0a0c12 90%);
+        }
+        .glass-card {
+            background: rgba(18, 22, 35, 0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            border: 1px solid rgba(0, 224, 255, 0.2);
+            padding: 40px;
+            width: 450px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+            transition: 0.3s;
+        }
+        h1 { font-size: 2rem; margin-bottom: 10px; background: linear-gradient(135deg,#fff,#00e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        p { color: #8a9bb5; margin-bottom: 30px; }
+        select {
+            width: 100%;
+            padding: 14px;
+            background: #1e2438;
+            border: 1px solid #2a3450;
+            border-radius: 40px;
+            color: #eef5ff;
+            font-size: 1rem;
+            margin-bottom: 25px;
+            outline: none;
+            cursor: pointer;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00a6ff, #0066cc);
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { transform: scale(1.02); box-shadow: 0 0 15px #00a6ff; }
+        .fa-train { margin-right: 8px; }
+    </style>
+</head>
+<body>
+    <div class="glass-card">
+        <i class="fas fa-train fa-3x" style="color:#00e0ff; margin-bottom: 15px;"></i>
+        <h1>Rail<span style="color:#00e0ff;">AI</span></h1>
+        <p>Select your city to access real‑time train & crowd AI</p>
+        <select id="citySelect">
+            <option value="">-- Choose City --</option>
+            <option value="Mumbai Central">Mumbai</option>
+            <option value="Delhi Junction">Delhi</option>
+            <option value="Howrah Junction">Kolkata (Howrah)</option>
+            <option value="Chennai Central">Chennai</option>
+            <option value="Bengaluru City">Bengaluru</option>
+            <option value="Kolkata Sealdah">Kolkata (Sealdah)</option>
+            <option value="Lucknow Junction">Lucknow</option>
+            <option value="Pune Junction">Pune</option>
+            <option value="Ahmedabad Junction">Ahmedabad</option>
+            <option value="Jaipur Junction">Jaipur</option>
+            <option value="Hyderabad Deccan">Hyderabad</option>
+            <option value="Patna Junction">Patna</option>
+            <option value="Bhopal Junction">Bhopal</option>
+            <option value="Chandigarh Junction">Chandigarh</option>
+            <option value="Guwahati Junction">Guwahati</option>
+        </select>
+        <button onclick="goToDashboard()"><i class="fas fa-arrow-right"></i> Enter Control Room</button>
+    </div>
+    <script>
+        function goToDashboard() {
+            const city = document.getElementById('citySelect').value;
+            if (!city) { alert('Please select a city'); return; }
+            localStorage.setItem('selected_city', city);
+            window.location.href = `/dashboard?city=${encodeURIComponent(city)}`;
+        }
+    </script>
+</body>
+</html>

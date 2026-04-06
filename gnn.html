@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNN Spike Prediction | RailAI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body { background: #0a0c12; font-family: 'Segoe UI', system-ui; padding: 30px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .glass-card {
+            background: rgba(18,22,35,0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(0,224,255,0.2);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        h1 { color: #eef5ff; margin-bottom: 15px; }
+        .current-spike {
+            text-align: center;
+            padding: 20px;
+            background: #1e2438;
+            border-radius: 40px;
+            margin: 15px 0;
+        }
+        .spike-value {
+            font-size: 3rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #fff, #00e0ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .risk-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 40px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .risk-high { background: #ff4d4d; color: white; }
+        .risk-medium { background: #ffa500; color: black; }
+        .risk-low { background: #2ecc71; color: black; }
+        select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #1e2438;
+            border: 1px solid #2a3450;
+            border-radius: 40px;
+            color: white;
+        }
+        button {
+            background: linear-gradient(135deg, #00a6ff, #0066cc);
+            border: none;
+            cursor: pointer;
+        }
+        canvas { margin-top: 20px; max-height: 300px; background: #1e2438; border-radius: 20px; padding: 10px; }
+        .back-link { display: inline-block; margin-top: 20px; color: #00e0ff; text-decoration: none; }
+        .btn-secondary { background: linear-gradient(135deg, #6c5ce7, #4834d4); margin-top: 5px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="glass-card">
+        <h1><i class="fas fa-brain"></i> GNN Spike Probability</h1>
+        <select id="stationSelect">
+            <option value="">-- Select Station --</option>
+        </select>
+        <button onclick="loadCurrentSpike()"><i class="fas fa-chart-line"></i> Get Current Spike</button>
+        <div id="currentSpike" class="current-spike" style="display: none;">
+            <div>Current Spike Probability</div>
+            <div class="spike-value" id="spikeValue">--</div>
+            <div id="riskBadge"></div>
+            <div id="crowdInfo" style="margin-top: 10px; font-size: 0.9rem;"></div>
+        </div>
+        <button onclick="loadHistoryGraph()" class="btn-secondary"><i class="fas fa-chart-line"></i> Load History Graph (Last 24h)</button>
+        <canvas id="spikeChart"></canvas>
+        <a href="/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+</div>
+<script>
+    const stations = ["Mumbai Central","Delhi Junction","Howrah Junction","Chennai Central","Bengaluru City","Kolkata Sealdah","Lucknow Junction","Pune Junction","Ahmedabad Junction","Jaipur Junction","Hyderabad Deccan","Patna Junction","Bhopal Junction","Chandigarh Junction","Guwahati Junction"];
+    const select = document.getElementById('stationSelect');
+    stations.forEach(s => { const opt = document.createElement('option'); opt.value = s; opt.textContent = s; select.appendChild(opt); });
+    let chart = null;
+
+    async function loadCurrentSpike() {
+        const station = select.value;
+        if (!station) { alert('Select a station'); return; }
+        const resultDiv = document.getElementById('currentSpike');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div><i class="fas fa-spinner fa-pulse"></i> Loading...</div>';
+        try {
+            const res = await fetch(`/api/gnn/current-spike/${encodeURIComponent(station)}`);
+            const data = await res.json();
+            if (data.message) {
+                resultDiv.innerHTML = `<div>⚠️ ${data.message}</div>`;
+                return;
+            }
+            const probPercent = (data.spike_probability * 100).toFixed(1);
+            let riskClass = '';
+            let riskText = '';
+            if (data.spike_probability > 0.7) { riskClass = 'risk-high'; riskText = '🔴 High Risk'; }
+            else if (data.spike_probability > 0.4) { riskClass = 'risk-medium'; riskText = '🟡 Medium Risk'; }
+            else { riskClass = 'risk-low'; riskText = '🟢 Low Risk'; }
+            resultDiv.innerHTML = `
+                <div>Current Spike Probability</div>
+                <div class="spike-value">${probPercent}%</div>
+                <div class="risk-badge ${riskClass}">${riskText}</div>
+                <div id="crowdInfo">👥 Latest crowd: ${data.latest_crowd} (${data.latest_level})</div>
+                <div style="font-size:0.7rem; margin-top:8px;">Updated: ${new Date(data.timestamp).toLocaleTimeString()}</div>
+            `;
+        } catch (err) {
+            resultDiv.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+        }
+    }
+
+    async function loadHistoryGraph() {
+        const station = select.value;
+        if (!station) { alert('Select a station'); return; }
+        const ctx = document.getElementById('spikeChart').getContext('2d');
+        ctx.canvas.style.display = 'block';
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        if (chart) chart.destroy();
+        try {
+            const res = await fetch(`/api/gnn/spike-history/${encodeURIComponent(station)}?hours=24`);
+            const data = await res.json();
+            if (!data.timestamps || data.timestamps.length === 0) {
+                alert('Not enough data for graph (need at least 10 records).');
+                return;
+            }
+            const timestamps = data.timestamps.map(t => new Date(t).toLocaleTimeString());
+            const probs = data.probabilities.map(p => p * 100);
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'Spike Probability (%)',
+                        data: probs,
+                        borderColor: '#00e0ff',
+                        backgroundColor: 'rgba(0,224,255,0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: '#00e0ff',
+                        pointBorderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: { beginAtZero: true, max: 100, title: { display: true, text: 'Probability (%)' } },
+                        x: { title: { display: true, text: 'Time' } }
+                    },
+                    plugins: {
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.raw.toFixed(1)}%` } }
+                    }
+                }
+            });
+        } catch (err) {
+            alert('Error loading graph: ' + err.message);
+        }
+    }
+</script>
+</body>
+</html>

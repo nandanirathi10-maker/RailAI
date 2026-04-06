@@ -1,0 +1,11 @@
+flask
+flask-cors
+paho-mqtt
+sqlite3
+numpy
+pandas
+tensorflow
+torch
+torch-geometric
+scikit-learn
+werkzeug

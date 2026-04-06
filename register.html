@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | RailAI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: #0a0c12;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: radial-gradient(circle at 10% 20%, rgba(0,224,255,0.05) 0%, #0a0c12 90%);
+        }
+        .glass-card {
+            background: rgba(18, 22, 35, 0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            border: 1px solid rgba(0, 224, 255, 0.2);
+            padding: 40px;
+            width: 450px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        h1 { font-size: 2rem; text-align: center; margin-bottom: 10px; background: linear-gradient(135deg,#fff,#00e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .sub { text-align: center; color: #8a9bb5; margin-bottom: 25px; }
+        input {
+            width: 100%;
+            padding: 14px;
+            background: #1e2438;
+            border: 1px solid #2a3450;
+            border-radius: 40px;
+            color: #eef5ff;
+            font-size: 1rem;
+            margin-bottom: 18px;
+            outline: none;
+        }
+        input:focus { border-color: #00e0ff; box-shadow: 0 0 8px rgba(0,224,255,0.3); }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00a6ff, #0066cc);
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { transform: scale(1.02); box-shadow: 0 0 15px #00a6ff; }
+        .link { text-align: center; margin-top: 20px; color: #8a9bb5; }
+        .link a { color: #00e0ff; text-decoration: none; }
+        .message { text-align: center; margin-top: 15px; }
+        .success { color: #2ecc71; }
+        .error { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="glass-card">
+        <h1><i class="fas fa-user-plus"></i> RailAI</h1>
+        <div class="sub">Create your account</div>
+        <form id="registerForm">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <input type="tel" id="phone" placeholder="Phone (optional)">
+            <button type="submit"><i class="fas fa-user-check"></i> Register</button>
+        </form>
+        <div id="message" class="message"></div>
+        <div class="link">Already have an account? <a href="/login">Login</a></div>
+    </div>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const phone = document.getElementById('phone').value;
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password, phone })
+            });
+            const data = await response.json();
+            const msgDiv = document.getElementById('message');
+            if (response.ok) {
+                msgDiv.innerHTML = '<span class="success">✅ Registration successful! Redirecting...</span>';
+                setTimeout(() => window.location.href = '/login', 2000);
+            } else {
+                msgDiv.innerHTML = `<span class="error">❌ ${data.error}</span>`;
+            }
+        });
+    </script>
+</body>
+</html>

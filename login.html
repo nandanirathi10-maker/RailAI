@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | RailAI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: #0a0c12;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: radial-gradient(circle at 10% 20%, rgba(0,224,255,0.05) 0%, #0a0c12 90%);
+        }
+        .glass-card {
+            background: rgba(18, 22, 35, 0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 32px;
+            border: 1px solid rgba(0, 224, 255, 0.2);
+            padding: 40px;
+            width: 420px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        h1 { font-size: 2rem; text-align: center; margin-bottom: 10px; background: linear-gradient(135deg,#fff,#00e0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .sub { text-align: center; color: #8a9bb5; margin-bottom: 30px; }
+        input {
+            width: 100%;
+            padding: 14px;
+            background: #1e2438;
+            border: 1px solid #2a3450;
+            border-radius: 40px;
+            color: #eef5ff;
+            font-size: 1rem;
+            margin-bottom: 18px;
+            outline: none;
+            transition: 0.2s;
+        }
+        input:focus { border-color: #00e0ff; box-shadow: 0 0 8px rgba(0,224,255,0.3); }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00a6ff, #0066cc);
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { transform: scale(1.02); box-shadow: 0 0 15px #00a6ff; }
+        .link { text-align: center; margin-top: 20px; color: #8a9bb5; }
+        .link a { color: #00e0ff; text-decoration: none; }
+        .error { color: #ff6b6b; text-align: center; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="glass-card">
+        <h1><i class="fas fa-user-astronaut"></i> RailAI</h1>
+        <div class="sub">Login to your dashboard</div>
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <button type="submit"><i class="fas fa-sign-in-alt"></i> Login</button>
+        </form>
+        <div id="error" class="error"></div>
+        <div class="link">New here? <a href="/register">Create account</a></div>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                localStorage.setItem('user_id', data.user_id);
+                localStorage.setItem('username', data.username);
+                window.location.href = '/select_city';
+            } else {
+                document.getElementById('error').innerText = data.error;
+            }
+        });
+    </script>
+</body>
+</html>

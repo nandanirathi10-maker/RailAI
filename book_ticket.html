@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Ticket | RailAI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background: #0a0c12; font-family: 'Segoe UI', system-ui; padding: 30px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .glass-card { background: rgba(18,22,35,0.8); backdrop-filter: blur(12px); border-radius: 28px; border: 1px solid rgba(0,224,255,0.2); padding: 25px; margin-bottom: 20px; }
+        h1, h2 { color: #eef5ff; margin-bottom: 15px; }
+        select, input { width: 100%; padding: 12px; background: #1e2438; border: 1px solid #2a3450; border-radius: 40px; color: #eef5ff; margin: 8px 0; }
+        button { background: linear-gradient(135deg,#00a6ff,#0066cc); border: none; padding: 12px; border-radius: 40px; color: white; font-weight: bold; width: 100%; cursor: pointer; }
+        .train-item { background: #1e2438; border-radius: 20px; padding: 12px; margin: 8px 0; cursor: pointer; border: 1px solid #2a3450; display: flex; justify-content: space-between; align-items: center; }
+        .train-item.selected { background: #00a6ff; }
+        .train-fare { font-weight: bold; color: #00e0ff; }
+        .success { background: #2ecc71; padding: 10px; border-radius: 20px; text-align: center; margin-top: 15px; }
+        .error { background: #ff6b6b; padding: 10px; border-radius: 20px; text-align: center; margin-top: 15px; }
+        .back-link { display: inline-block; margin-top: 15px; color: #00e0ff; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="glass-card">
+        <h1><i class="fas fa-ticket-alt"></i> Book Ticket</h1>
+        <h2><i class="fas fa-map-marker-alt"></i> Station: <span id="cityName"></span></h2>
+        <div id="trainList">Loading trains...</div>
+        <input type="hidden" id="selectedTrainId">
+        <input type="hidden" id="selectedFare">
+        <h2>Passenger Details</h2>
+        <input type="text" id="passengerName" placeholder="Full Name" required>
+        <input type="number" id="passengerAge" placeholder="Age" required>
+        <input type="date" id="journeyDate" required>
+        <div id="fareDisplay" style="text-align:center; margin:10px 0;"></div>
+        <button onclick="bookTicket()">Confirm Booking</button>
+        <div id="result"></div>
+        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+    </div>
+    <div class="glass-card">
+        <h2>My Tickets</h2>
+        <div id="myTickets">Loading...</div>
+    </div>
+</div>
+<script>
+    const userId = localStorage.getItem('user_id');
+    if (!userId) window.location.href = '/login';
+    const city = localStorage.getItem('selected_city') || 'Mumbai Central';
+    document.getElementById('cityName').innerText = city;
+    let selectedTrain = null;
+
+    async function loadTrains() {
+        try {
+            const res = await fetch(`/api/trains/by_station/${encodeURIComponent(city)}`);
+            const trains = await res.json();
+            const container = document.getElementById('trainList');
+            container.innerHTML = '';
+            trains.forEach(train => {
+                const div = document.createElement('div');
+                div.className = 'train-item';
+                div.innerHTML = `<div><i class="fas fa-train"></i> ${train.name}<br><small>${train.from_station}→${train.to_station} | ${train.scheduled_time}</small></div><div class="train-fare">₹${train.fare || 100}</div>`;
+                div.onclick = () => {
+                    document.querySelectorAll('.train-item').forEach(i => i.classList.remove('selected'));
+                    div.classList.add('selected');
+                    selectedTrain = train;
+                    document.getElementById('selectedTrainId').value = train.id;
+                    document.getElementById('selectedFare').value = train.fare || 100;
+                    document.getElementById('fareDisplay').innerHTML = `<strong>Fare: ₹${train.fare || 100}</strong>`;
+                };
+                container.appendChild(div);
+            });
+        } catch (err) { console.error(err); }
+    }
+
+    async function bookTicket() {
+        if (!selectedTrain) { alert('Select a train'); return; }
+        const passengerName = document.getElementById('passengerName').value;
+        const passengerAge = document.getElementById('passengerAge').value;
+        const journeyDate = document.getElementById('journeyDate').value;
+        const fare = document.getElementById('selectedFare').value;
+        if (!passengerName || !passengerAge || !journeyDate) { alert('Fill all fields'); return; }
+        try {
+            const res = await fetch('/api/tickets/book', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: userId, train_id: selectedTrain.id, from_station: selectedTrain.from_station,
+                    to_station: selectedTrain.to_station, journey_date: journeyDate,
+                    passenger_name: passengerName, passenger_age: parseInt(passengerAge), fare: parseFloat(fare)
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('result').innerHTML = `<div class="success">✅ Ticket booked! ID: ${data.ticket_id}</div>`;
+                loadMyTickets();
+            } else { document.getElementById('result').innerHTML = `<div class="error">${data.error}</div>`; }
+        } catch (err) { document.getElementById('result').innerHTML = `<div class="error">Booking failed</div>`; }
+    }
+
+    async function loadMyTickets() {
+        try {
+            const res = await fetch(`/api/tickets/${userId}`);
+            const tickets = await res.json();
+            const container = document.getElementById('myTickets');
+            if (tickets.length === 0) { container.innerHTML = '<p>No tickets yet.</p>'; return; }
+            container.innerHTML = tickets.map(t => `<div class="success" style="margin-bottom:8px;"><strong>${t.ticket_id}</strong> - ${t.train_name}<br>${t.from_station}→${t.to_station}<br>${t.journey_date} | ${t.departure_time}<br>${t.passenger_name} | ₹${t.fare}</div>`).join('');
+        } catch (err) { console.error(err); }
+    }
+
+    loadTrains(); loadMyTickets();
+</script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+Here is an **instruction file** 
+ that tells the user exactly which file belongs to which server and how to run them in order
+
+## 🚦 How to Run the RailAI System (4 Servers)
+
+Follow these steps **in order**. Each server must run in its own terminal window.
+
+---
+
+### ✅ Step 0 – Prepare the Database (MySQL)
+
+1. Start your MySQL server.  
+2. Create the database:  
+   ```sql
+   CREATE DATABASE railway_db;
+   ```
+3. Update the database credentials in **both** `apps.py` and `hub_logic.py`.  
+   Look for the `db_config` dictionary and change `password` to your MySQL root password.
+
+4. (Optional) Populate the trains table with 225 sample trains:  
+   ```bash
+   python populate_trains.py
+   ```
+   or  
+   ```bash
+   python insert_all_trains.py
+   ```
+
+5. (Optional) Insert sample crowd logs for the GNN graph:  
+   ```bash
+   python sample_crowd_logs.py
+   ```
+
+---
+
+### 🖥️ Step 1 – Start Server 4 (Web App – Flask)
+
+**File:** `apps.py`
+
+**Command:**
+```bash
+python apps.py
+```
+
+- The dashboard will be available at `http://localhost:5001`  
+- First, register a user, then log in.  
+- Select a city (e.g., `Mumbai Central`).
+
+---
+
+### 🧠 Step 2 – Start Server 2 (Central Hub)
+
+**File:** `hub_logic.py`
+
+**Command:**
+```bash
+python hub_logic.py
+```
+
+- When prompted, enter the **same station name** you selected in the web app.  
+- The hub will wait for a train to register.
+
+---
+
+### 🚆 Step 3 – Start Server 3 (Train Controller)
+
+**File:** `train_controller.py`
+
+**Command:**
+```bash
+python train_controller.py
+```
+
+- Enter the **Train ID** and **Train Name** that exist in your database **and** belong to the station you entered in Server 2.  
+- Wait for the message `✅ Registered with hub`.  
+- Press `0` to start the train.
+
+---
+
+### 📷 Step 4 – Start Server 1 (Trackside Camera / Obstacle Detection)
+
+**File:** `detection_logic.py`
+
+**Command:**
+```bash
+python detection_logic.py
+```
+
+- The script will use your default webcam (or an IP camera URL) to detect obstacles.  
+- If you don’t have a camera, you can manually publish test messages using an MQTT client.
+
+---
+
+## 🔄 What Happens After All Servers Are Running
+
+- Server 1 detects an obstacle → sends `OBSTACLE|A` via MQTT.  
+- Server 2 forwards it to Server 3 as `OBSTACLE_DETECTED`.  
+- Server 3 enters brake mode (10‑second timer).  
+- Driver presses `1` (or auto‑brake) → Server 3 publishes `STOP|train_id`.  
+- Server 2 receives it → sends HTTP POST to Server 4.  
+- Server 4 creates a notification for **all users** (filtered by selected city in the dashboard).  
+- The notification appears in the **Live Alerts** section of the dashboard.
+
+---
+
+## 📁 File‑to‑Server Mapping Summary
+
+| Server | Role | Main File | Additional Files (if any) |
+|--------|------|-----------|---------------------------|
+| **Server 4** | Web App (Flask) | `apps.py` | `trained_models.py`, `blockchain.py`, all `.html` files, `crowd_classifier.h5`, `crowd_spike_gnn.pth` |
+| **Server 2** | Central Hub | `hub_logic.py` | – |
+| **Server 3** | Train Controller | `train_controller.py` | – |
+| **Server 1** | Obstacle Detection | `detection_logic.py` | – |
+| **Database Setup** | MySQL schema & sample data | `populate_trains.py`, `insert_all_trains.py`, `sample_crowd_logs.py` | – |
+
+---
+
+## 🧪 Testing AI Features Separately
+
+- **CNN image upload** – open `http://localhost:5001/cnn`, upload a crowd photo.  
+- **GNN spike graph** – open `http://localhost:5001/gnn`, select a station, click “Load History Graph”.  
+
+> **Note:** The GNN graph requires at least 10 records in the `station_crowd_log` table. Run `sample_crowd_logs.py` to insert test data.
+
+---
+
+## ❗ Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `ModuleNotFoundError` | Activate your virtual environment and run `pip install -r requirements.txt` |
+| MySQL connection error | Check that MySQL is running and credentials in `db_config` are correct |
+| No notifications in dashboard | Ensure Server 2 is running and the train is registered. Check the Flask terminal for incoming HTTP requests. |
+| CNN model not loading | Verify that `crowd_classifier.h5` is in the same folder as `apps.py` |
+| GNN graph empty | Run `sample_crowd_logs.py` to insert test data, then restart the app |
+
+---
+
+## 📜 Copy‑Paste Quick Start (All Commands)
+
+```bash
+# Terminal 1 (Server 4)
+python apps.py
+
+# Terminal 2 (Server 2)
+python hub_logic.py
+
+# Terminal 3 (Server 3)
+python train_controller.py
+
+# Terminal 4 (Server 1)
+python detection_logic.py
+```
+
+---

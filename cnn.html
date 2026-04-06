@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNN Crowd Prediction | RailAI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background: #0a0c12; font-family: 'Segoe UI', system-ui; padding: 30px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .glass-card {
+            background: rgba(18, 22, 35, 0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(0,224,255,0.2);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        h1 { color: #eef5ff; margin-bottom: 15px; }
+        h1 i { color: #00e0ff; margin-right: 10px; }
+        h2 { color: #eef5ff; font-size: 1.2rem; margin: 20px 0 10px 0; border-left: 3px solid #00e0ff; padding-left: 10px; }
+        .upload-area {
+            border: 2px dashed #2a3450;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 20px 0;
+        }
+        .upload-area:hover {
+            border-color: #00e0ff;
+            background: rgba(0,224,255,0.05);
+        }
+        .upload-area i { font-size: 48px; color: #2a3450; margin-bottom: 10px; }
+        .upload-area:hover i { color: #00e0ff; }
+        .preview-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 16px;
+            margin-top: 15px;
+        }
+        select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #1e2438;
+            border: 1px solid #2a3450;
+            border-radius: 40px;
+            color: white;
+            font-size: 1rem;
+        }
+        button {
+            background: linear-gradient(135deg, #00a6ff, #0066cc);
+            border: none;
+            cursor: pointer;
+        }
+        button:hover { transform: scale(1.02); box-shadow: 0 0 12px #00a6ff; }
+        .result {
+            margin-top: 20px;
+            background: #1e2438;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+        }
+        .crowd-low { color: #2ecc71; }
+        .crowd-medium { color: #f39c12; }
+        .crowd-high { color: #ff6b6b; }
+        .crowd-critical { color: #ff1493; }
+        .back-link { display: inline-block; margin-top: 20px; color: #00e0ff; text-decoration: none; }
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #2a3450;
+        }
+        .divider span {
+            padding: 0 10px;
+            color: #8a9bb5;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="glass-card">
+        <h1><i class="fas fa-microchip"></i> CNN Crowd Prediction</h1>
+        
+        <!-- Image Upload Section -->
+        <h2><i class="fas fa-camera"></i> Upload Station Image</h2>
+        <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <div>Click or drag to upload station crowd image</div>
+            <small style="color: #8a9bb5;">Upload a photo of the platform to analyze crowd density</small>
+            <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="previewAndPredict(this)">
+        </div>
+        <div id="imagePreview" style="text-align: center;"></div>
+        
+        <div id="cnnResult" class="result" style="display: none;"></div>
+        
+        <div class="divider"><span>OR</span></div>
+        
+        <!-- Station Selection Section (rule-based) -->
+        <h2><i class="fas fa-map-marker-alt"></i> Select Station (Rule‑Based)</h2>
+        <select id="stationSelect">
+            <option value="">-- Select Station --</option>
+        </select>
+        <button onclick="predictStationCrowd()"><i class="fas fa-chart-line"></i> Predict Station Crowd</button>
+        <div id="stationResult" class="result" style="display: none;"></div>
+        
+        <a href="/dashboard" class="back-link"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+</div>
+
+<script>
+    // Populate station dropdown
+    const stations = ["Mumbai Central","Delhi Junction","Howrah Junction","Chennai Central","Bengaluru City","Kolkata Sealdah","Lucknow Junction","Pune Junction","Ahmedabad Junction","Jaipur Junction","Hyderabad Deccan","Patna Junction","Bhopal Junction","Chandigarh Junction","Guwahati Junction"];
+    const select = document.getElementById('stationSelect');
+    stations.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s;
+        select.appendChild(opt);
+    });
+
+    // Preview image and send to CNN model
+    async function previewAndPredict(input) {
+        const file = input.files[0];
+        if (!file) return;
+        
+        // Preview image
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewDiv = document.getElementById('imagePreview');
+            previewDiv.innerHTML = `<img src="${e.target.result}" class="preview-image" alt="Preview">`;
+        };
+        reader.readAsDataURL(file);
+        
+        // Send to CNN model
+        const resultDiv = document.getElementById('cnnResult');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div><i class="fas fa-spinner fa-pulse"></i> Analyzing crowd density with CNN...</div>';
+        
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        try {
+            const response = await fetch('/api/cnn/predict-image', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            
+            let crowdClass = '';
+            if (data.crowd_level === 'Low') crowdClass = 'crowd-low';
+            else if (data.crowd_level === 'Medium') crowdClass = 'crowd-medium';
+            else if (data.crowd_level === 'High') crowdClass = 'crowd-high';
+            else crowdClass = 'crowd-critical';
+            
+            resultDiv.innerHTML = `
+                <strong><i class="fas fa-microchip"></i> CNN Model Analysis</strong><br>
+                👥 Predicted Crowd: <strong class="${crowdClass}">${data.predicted_crowd}</strong> people<br>
+                📊 Density Level: <span class="${crowdClass}"><strong>${data.crowd_level}</strong></span><br>
+                📈 Confidence: <strong>${(data.confidence * 100).toFixed(1)}%</strong><br>
+                💡 Recommendation: ${data.recommendation}<br>
+                <small>🕐 ${new Date(data.timestamp).toLocaleString()}</small>
+            `;
+        } catch (error) {
+            resultDiv.innerHTML = `<div style="color: #ff6b6b;">❌ Error: ${error.message}</div>`;
+        }
+    }
+    
+    // Rule-based station crowd prediction
+    async function predictStationCrowd() {
+        const station = select.value;
+        if (!station) {
+            alert('Please select a station');
+            return;
+        }
+        
+        const resultDiv = document.getElementById('stationResult');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = '<div><i class="fas fa-spinner fa-pulse"></i> Analyzing...</div>';
+        
+        try {
+            const response = await fetch('/api/predict/cnn', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station: station })
+            });
+            const data = await response.json();
+            
+            let crowdClass = '';
+            if (data.crowd_level === 'Low') crowdClass = 'crowd-low';
+            else if (data.crowd_level === 'Medium') crowdClass = 'crowd-medium';
+            else if (data.crowd_level === 'High') crowdClass = 'crowd-high';
+            else crowdClass = 'crowd-critical';
+            
+            resultDiv.innerHTML = `
+                <strong><i class="fas fa-database"></i> Rule‑Based Prediction (Train Schedule)</strong><br>
+                🚉 Station: ${data.station}<br>
+                👥 Predicted Crowd: <strong class="${crowdClass}">${data.predicted_crowd}</strong> passengers<br>
+                📊 Level: <strong>${data.crowd_level}</strong><br>
+                🚆 Affected Trains: ${data.affected_trains ? data.affected_trains.join(', ') : 'None'}<br>
+                <small>🕐 ${new Date(data.timestamp).toLocaleString()}</small>
+            `;
+        } catch (error) {
+            resultDiv.innerHTML = `<div style="color: #ff6b6b;">❌ Error: ${error.message}</div>`;
+        }
+    }
+</script>
+</body>
+</html>
